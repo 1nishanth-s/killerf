@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌍 Smart Tourist Route Optimizer</title>
+  <style>
+    :root {
+      --ocean-blue: #0ea5e9;
+      --sunset-orange: #f97316;
+      --soft-teal: #14b8a6;
+      --glass-bg: rgba(255, 255, 255, 0.82);
+      --glass-border: rgba(255, 255, 255, 0.4);
+      --text-dark: #1e293b;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: linear-gradient(135deg, #e0f2fe 0%, #fef3c7 50%, #ecfdf5 100%); min-height: 100vh; color: var(--text-dark); padding: 20px; }
+
+    .app-container { max-width: 1400px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 { font-size: 2.2rem; font-weight: 700; background: linear-gradient(to right, var(--ocean-blue), var(--sunset-orange)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    header p { color: #64748b; margin-top: 6px; font-size: 1rem; }
+
+    .dashboard { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
+
+    .glass-panel {
+      background: var(--glass-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      transition: all 0.3s ease;
+    }
+    .glass-panel:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(15, 23, 42, 0.15); }
+
+    .left-panel { display: flex; flex-direction: column; gap: 24px; }
+    .panel-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    
+    .algo-cards { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .algo-card {
+      padding: 16px; border-radius: 12px; cursor: pointer; border: 2px solid transparent;
+      background: rgba(255,255,255,0.6); transition: all 0.25s ease; text-align: center;
+    }
+    .algo-card:hover { background: rgba(255,255,255,0.9); transform: scale(1.02); }
+    .algo-card.active { border-color: var(--ocean-blue); background: linear-gradient(135deg, #f0f9ff, #e0f2fe); }
+    .algo-card.prim.active { border-color: var(--soft-teal); background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
+    .algo-icon { font-size: 1.8rem; display: block; margin-bottom: 6px; }
+    .algo-name { font-weight: 700; font-size: 1.05rem; }
+    .algo-desc { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
+
+    .form-group { margin-bottom: 14px; }
+    label { font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block; }
+    input, select, button {
+      width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid #cbd5e1;
+      background: #fff; font-size: 0.9rem; transition: border 0.2s;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--ocean-blue); }
+    .btn { background: linear-gradient(to right, var(--ocean-blue), var(--soft-teal)); color: #fff; border: none; cursor: pointer; font-weight: 600; margin-top: 8px; }
+    .btn:hover { filter: brightness(1.1); }
+    .btn:disabled { background: #94a3b8; cursor: not-allowed; filter: none; }
+    .btn-outline { background: transparent; border: 1px solid #94a3b8; color: #475569; cursor: pointer; }
+    .btn-outline:hover { background: #f1f5f9; }
+    .row { display: flex; gap: 8px; }
+    .hint { font-size: 0.78rem; color: #64748b; background: #f8fafc; padding: 8px; border-radius: 6px; margin-top: 6px; border-left: 3px solid var(--ocean-blue); }
+
+    .vis-area { display: flex; flex-direction: column; gap: 24px; }
+    .maps-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .map-box { position: relative; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
+    .map-label { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,0.9); padding: 6px 12px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    canvas { width: 100%; height: 420px; display: block; background: #f8fafc; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; }
+    .stat-card { background: #fff; padding: 16px; border-radius: 14px; text-align: center; box-shadow: var(--shadow); }
+    .stat-val { font-size: 1.4rem; font-weight: 700; margin: 6px 0; }
+    .stat-label { font-size: 0.78rem; color: #64748b; }
+    .stat-val.blue { color: var(--ocean-blue); }
+    .stat-val.orange { color: var(--sunset-orange); }
+    .stat-val.teal { color: var(--soft-teal); }
+
+    @media (max-width: 1024px) {
+      .dashboard { grid-template-columns: 1fr; }
+      .maps-container { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      canvas { height: 320px; }
+    }
+
+    .loader { display: none; text-align: center; margin: 10px 0; }
+    .spinner { width: 20px; height: 20px; border: 2px solid #cbd5e1; border-top: 2px solid var(--ocean-blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <h1>🌍 Smart Tourist Navigation Platform</h1>
+      <p>AI-Powered Route Optimization • Graph Algorithm Visualization • Live Dashboard</p>
+    </header>
+
+    <div class="dashboard">
+      <aside class="left-panel">
+        <div class="glass-panel">
+          <div class="panel-title">🔀 Algorithm Selector</div>
+          <div class="algo-cards">
+            <div class="algo-card active" data-algo="dijkstra">
+              <span class="algo-icon">🚀</span>
+              <div class="algo-name">Dijkstra's Algorithm</div>
+              <div class="algo-desc">Fastest Route • Min Time</div>
+            </div>
+            <div class="algo-card prim" data-algo="prim">
+              <span class="algo-icon">🌿</span>
+              <div class="algo-name">Prim's Algorithm</div>
+              <div class="algo-desc">Cheapest Network • Min Cost</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-panel">
+          <div class="panel-title">📍 Destination Updater</div>
+          <div class="form-group">
+            <label>Add New Destination</label>
+            <div class="row">
+              <input type="text" id="newNodeName" placeholder="e.g., Airport Hub, Beach, Museum">
+              <button class="btn-outline" onclick="addNode()" style="width: 50px;">+</button>
+            </div>
+            <div class="hint">💡 Add at least 2 destinations to start building your travel map.</div>
+          </div>
+          <div class="form-group">
+            <label>Add Route (From → To | Cost)</label>
+            <select id="edgeFrom" disabled><option>Add nodes first</option></select>
+            <select id="edgeTo" disabled><option>Add nodes first</option></select>
+            <div class="row">
+              <input type="number" id="edgeCost" placeholder="Distance/Time" min="1" disabled>
+              <button class="btn" id="connectBtn" onclick="addEdge()" disabled>Connect</button>
+            </div>
+          </div>
+          <div class="loader" id="loader"><div class="spinner"></div><small>Optimizing routes...</small></div>
+          <button class="btn" id="optimizeBtn" onclick="runOptimization()" disabled>⚡ Run Optimization</button>
+        </div>
+      </aside>
+
+      <section class="vis-area">
+        <div class="maps-container">
+          <div class="map-box">
+            <div class="map-label">📍 Original Route Map</div>
+            <canvas id="originalCanvas"></canvas>
+          </div>
+          <div class="map-box">
+            <div class="map-label">✨ Optimized / Traversed Map</div>
+            <canvas id="optimizedCanvas"></canvas>
+          </div>
+        </div>
+
+        <div class="glass-panel">
+          <div class="panel-title">📊 Route Analytics & Comparison</div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Algorithm</div>
+              <div class="stat-val blue" id="statAlgo">Dijkstra</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Original Distance</div>
+              <div class="stat-val" id="statOrigDist">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Optimized Distance</div>
+              <div class="stat-val orange" id="statOptDist">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Est. Travel Time</div>
+              <div class="stat-val teal" id="statTime">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Time Saved</div>
+              <div class="stat-val orange" id="statTimeSaved">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Efficiency Gain</div>
+              <div class="stat-val teal" id="statEff">--</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      nodes: [],
+      edges: [],
+      positions: {},
+      selectedAlgorithm: 'dijkstra',
+      optimizedData: null,
+      animating: false
+    };
+
+    const originalCanvas = document.getElementById('originalCanvas');
+    const optimizedCanvas = document.getElementById('optimizedCanvas');
+    const ctxOrig = originalCanvas.getContext('2d');
+    const ctxOpt = optimizedCanvas.getContext('2d');
+
+    function init() {
+      resizeCanvases();
+      window.addEventListener('resize', () => { resizeCanvases(); drawAll(); });
+      setupEventListeners();
+      drawAll();
+      resetStats();
+    }
+
+    function resizeCanvases() {
+      [originalCanvas, optimizedCanvas].forEach(c => {
+        const rect = c.parentElement.getBoundingClientRect();
+        c.width = rect.width;
+        c.height = rect.height;
+      });
+      if (state.nodes.length > 0) drawAll();
+    }
+
+    function setupEventListeners() {
+      document.querySelectorAll('.algo-card').forEach(card => {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.algo-card').forEach(c => c.classList.remove('active'));
+          card.classList.add('active');
+          state.selectedAlgorithm = card.dataset.algo;
+          document.getElementById('statAlgo').textContent = state.selectedAlgorithm === 'dijkstra' ? 'Dijkstra' : 'Prim\'s';
+        });
+      });
+    }
+
+    function updateUIState() {
+      const hasNodes = state.nodes.length >= 2;
+      const hasEdges = state.edges.length > 0;
+      
+      document.getElementById('edgeFrom').disabled = !hasNodes;
+      document.getElementById('edgeTo').disabled = !hasNodes;
+      document.getElementById('edgeCost').disabled = !hasNodes;
+      document.getElementById('connectBtn').disabled = !hasNodes;
+      document.getElementById('optimizeBtn').disabled = !hasEdges;
+
+      const fromSel = document.getElementById('edgeFrom');
+      const toSel = document.getElementById('edgeTo');
+      const opts = state.nodes.map(n => `<option value="${n}">${n}</option>`).join('');
+      
+      if (hasNodes) {
+        fromSel.innerHTML = '<option value="">Select From</option>' + opts;
+        toSel.innerHTML = '<option value="">Select To</option>' + opts;
+      } else {
+        fromSel.innerHTML = '<option>Add nodes first</option>';
+        toSel.innerHTML = '<option>Add nodes first</option>';
+      }
+    }
+
+    function addNode() {
+      const nameInput = document.getElementById('newNodeName');
+      const name = nameInput.value.trim();
+      if (!name) return alert('Please enter a destination name.');
+      if (state.nodes.includes(name)) return alert('Destination already exists.');
+      
+      state.nodes.push(name);
+      state.positions[name] = {
+        x: 80 + Math.random() * (originalCanvas.width - 160),
+        y: 80 + Math.random() * (originalCanvas.height - 160)
+      };
+      
+      nameInput.value = '';
+      updateUIState();
+      drawAll();
+    }
+
+    function addEdge() {
+      const from = document.getElementById('edgeFrom').value;
+      const to = document.getElementById('edgeTo').value;
+      const costInput = document.getElementById('edgeCost');
+      const cost = parseFloat(costInput.value);
+      
+      if (!from || !to || !cost || from === to) return alert('Select two different destinations and enter a valid cost.');
+      
+      const exists = state.edges.some(e => (e.from === from && e.to === to) || (e.from === to && e.to === from));
+      if (exists) return alert('This route already exists.');
+      
+      state.edges.push({from, to, cost});
+      costInput.value = '';
+      updateUIState();
+      drawAll();
+    }
+
+    function drawGraph(ctx, isOptimized, highlightEdges = []) {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      for(let i=0; i<ctx.canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,ctx.canvas.height); ctx.stroke(); }
+      for(let i=0; i<ctx.canvas.height; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(ctx.canvas.width,i); ctx.stroke(); }
+
+      if (state.nodes.length === 0) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Add destinations & routes to begin exploring', ctx.canvas.width/2, ctx.canvas.height/2);
+        ctx.textAlign = 'left';
+        return;
+      }
+
+      const isHighlight = (e) => highlightEdges.some(h => 
+        (h.from === e.from && h.to === e.to) || (h.from === e.to && h.to === e.from)
+      );
+
+      state.edges.forEach(e => {
+        const p1 = state.positions[e.from], p2 = state.positions[e.to];
+        if (!p1 || !p2) return;
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = isHighlight(e) ? '#0ea5e9' : '#94a3b8';
+        ctx.lineWidth = isHighlight(e) ? 4 : 2;
+        ctx.stroke();
+
+        if (isHighlight(e)) {
+          ctx.strokeStyle = 'rgba(14, 165, 233, 0.3)';
+          ctx.lineWidth = 12;
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(`${e.cost}`, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2 - 6);
+      });
+
+      state.nodes.forEach(n => {
+        const p = state.positions[n];
+        if (!p) return;
+        
+        const isRoot = n.toLowerCase().includes('hotel') || n.toLowerCase().includes('airport') || n.toLowerCase().includes('hub');
+        
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.strokeStyle = isRoot ? '#f97316' : '#14b8a6';
+        ctx.lineWidth = isRoot ? 4 : 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y - 2, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#334155';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(p.x - 8, p.y + 6);
+        ctx.lineTo(p.x + 8, p.y + 6);
+        ctx.lineTo(p.x, p.y + 18);
+        ctx.closePath();
+        ctx.fillStyle = isRoot ? '#f97316' : '#0ea5e9';
+        ctx.fill();
+
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(n, p.x, p.y + 34);
+        ctx.textAlign = 'left';
+      });
+    }
+
+    function drawAll() {
+      drawGraph(ctxOrig, false);
+      if (state.optimizedData) {
+        drawGraph(ctxOpt, true, state.optimizedData.optimizedEdges);
+        animateTraversal(ctxOpt, state.optimizedData.optimizedEdges);
+      } else {
+        drawGraph(ctxOpt, true);
+      }
+    }
+
+    function animateTraversal(ctx, pathEdges) {
+      if (state.animating || pathEdges.length === 0) return;
+      state.animating = true;
+      
+      let edgeIdx = 0;
+      let progress = 0;
+      const speed = 0.018;
+
+      function drawVehicle() {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        drawGraph(ctx, true, pathEdges);
+
+        if (edgeIdx < pathEdges.length) {
+          const e = pathEdges[edgeIdx];
+          const p1 = state.positions[e.from];
+          const p2 = state.positions[e.to];
+          if (!p1 || !p2) { edgeIdx++; progress = 0; return requestAnimationFrame(drawVehicle); }
+
+          progress += speed;
+          if (progress >= 1) {
+            progress = 0;
+            edgeIdx++;
+            return requestAnimationFrame(drawVehicle);
+          }
+
+          const vx = p1.x + (p2.x - p1.x) * progress;
+          const vy = p1.y + (p2.y - p1.y) * progress;
+
+          ctx.save();
+          ctx.translate(vx, vy);
+          ctx.rotate(Math.atan2(p2.y - p1.y, p2.x - p1.x));
+          ctx.fillStyle = '#f97316';
+          ctx.beginPath();
+          ctx.arc(0, 0, 10, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(-4, -6, 8, 12);
+          ctx.restore();
+        } else {
+          state.animating = false;
+        }
+        requestAnimationFrame(drawVehicle);
+      }
+      drawVehicle();
+    }
+
+    async function runOptimization() {
+      if (state.edges.length === 0) return alert('Please connect at least one route before optimizing.');
+      
+      const loader = document.getElementById('loader');
+      loader.style.display = 'block';
+      state.optimizedData = null;
+      drawAll();
+
+      try {
+        const res = await fetch('/optimize-route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            algorithm: state.selectedAlgorithm,
+            nodes: state.nodes,
+            edges: state.edges
+          })
+        });
+
+        if (!res.ok) throw new Error('Network response failed');
+        state.optimizedData = await res.json();
+        updateStats();
+        drawAll();
+      } catch (err) {
+        console.error(err);
+        alert('Failed to fetch optimization. Ensure backend is running.');
+      } finally {
+        loader.style.display = 'none';
+      }
+    }
+
+    function updateStats() {
+      const d = state.optimizedData;
+      if (!d) return;
+      document.getElementById('statOrigDist').textContent = `${d.originalDistance} km`;
+      document.getElementById('statOptDist').textContent = `${d.optimizedDistance} km`;
+      document.getElementById('statTime').textContent = d.estimatedTime;
+      document.getElementById('statTimeSaved').textContent = `-${d.timeSaved} min`;
+      document.getElementById('statEff').textContent = `+${d.costReduction}%`;
+    }
+
+    function resetStats() {
+      document.getElementById('statOrigDist').textContent = '--';
+      document.getElementById('statOptDist').textContent = '--';
+      document.getElementById('statTime').textContent = '--';
+      document.getElementById('statTimeSaved').textContent = '--';
+      document.getElementById('statEff').textContent = '--';
+    }
+
+    init();
+  </script>
+</body>
+</html>
